@@ -1,0 +1,62 @@
+name: Check and Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Lấy code
+        uses: actions/checkout@v4
+
+      - name: Kiểm tra đủ 3 file
+        run: |
+          for f in index.html style.css script.js; do
+            if [ ! -f "$f" ]; then
+              echo "LỖI: thiếu file $f"
+              exit 1
+            fi
+          done
+          echo "Đủ 3 file."
+
+      - name: Kiểm tra thẻ title
+        run: |
+          if ! grep -qi "<title>" index.html; then
+            echo "LỖI: index.html thiếu thẻ <title>"
+            exit 1
+          fi
+          echo "Có thẻ title."
+
+  deploy:
+    needs: check
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Lấy code
+        uses: actions/checkout@v4
+
+      - name: Cấu hình Pages
+        uses: actions/configure-pages@v5
+
+      - name: Đóng gói website
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy lên GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
